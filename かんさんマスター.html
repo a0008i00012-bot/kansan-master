@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>かんさんマスター</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --add:#FF6B6B; --sub:#4ECDC4; --mul:#f0a500; --div:#5b9e6e;
+    --bg:#FFF9F0; --card:#FFFFFF; --text:#2D2D2D; --muted:#888;
+    --radius:20px; --shadow:0 8px 32px rgba(0,0,0,0.12);
+  }
+  body { font-family:'Nunito',sans-serif; background:var(--bg); min-height:100vh; display:flex; align-items:center; justify-content:center; color:var(--text); overflow-x:hidden; }
+  .app { width:100%; max-width:520px; min-height:100vh; padding:20px 16px; display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .logo { text-align:center; }
+  .logo h1 { font-size:36px; font-weight:900; letter-spacing:-1px; }
+  .logo span { color:#FF6B6B; }
+  .logo .star { font-size:20px; }
+  .screen { width:100%; display:none; flex-direction:column; align-items:center; gap:14px; }
+  .screen.active { display:flex; }
+
+  /* OP */
+  .op-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; width:100%; }
+  .op-card {
+    background:var(--card); border-radius:var(--radius); padding:28px 20px;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    cursor:pointer; box-shadow:var(--shadow); border:3px solid transparent;
+    touch-action:manipulation; transition:transform 0.12s;
+  }
+  .op-card:active { transform:scale(0.95); }
+  .op-card[data-op="add"] { border-color:var(--add); }
+  .op-card[data-op="sub"] { border-color:var(--sub); }
+  .op-card[data-op="mul"] { border-color:var(--mul); }
+  .op-card[data-op="div"] { border-color:var(--div); }
+  .op-symbol { font-size:48px; font-weight:900; line-height:1; }
+  .op-card[data-op="add"] .op-symbol { color:var(--add); }
+  .op-card[data-op="sub"] .op-symbol { color:var(--sub); }
+  .op-card[data-op="mul"] .op-symbol { color:var(--mul); }
+  .op-card[data-op="div"] .op-symbol { color:var(--div); }
+  .op-name { font-size:18px; font-weight:700; }
+
+  /* DIFFICULTY LIST */
+  .diff-list { width:100%; display:flex; flex-direction:column; gap:10px; }
+  .diff-card {
+    background:var(--card); border-radius:var(--radius); padding:16px 20px;
+    cursor:pointer; box-shadow:var(--shadow);
+    display:flex; align-items:center; justify-content:space-between;
+    border-left:6px solid #ddd; touch-action:manipulation; transition:transform 0.12s;
+  }
+  .diff-card:active { transform:scale(0.98); }
+  .diff-card[data-diff="superEasy"] { border-color:#A8E6CF; }
+  .diff-card[data-diff="easy"]      { border-color:#4ECDC4; }
+  .diff-card[data-diff="normal"]    { border-color:#f0a500; }
+  .diff-card[data-diff="hard"]      { border-color:#FF6B6B; }
+  .diff-card[data-diff="veryHard"]  { border-color:#9B59B6; }
+  .diff-info h3 { font-size:17px; font-weight:700; }
+  .diff-info p  { font-size:12px; color:var(--muted); margin-top:2px; }
+  .diff-stars { font-size:16px; white-space:nowrap; }
+
+  /* TIMER */
+  .timer-bar-wrap { width:100%; background:#e9e9e9; border-radius:99px; height:16px; overflow:hidden; }
+  .timer-bar { height:100%; border-radius:99px; background:#4ECDC4; transition:width 0.25s linear, background 0.5s; }
+  .stats-row { display:flex; width:100%; justify-content:space-between; font-size:14px; font-weight:700; color:var(--muted); align-items:center; }
+  .stat-val { font-size:24px; color:var(--text); }
+
+  /* COMBO */
+  .combo-area { height:46px; display:flex; align-items:center; justify-content:center; }
+  .combo-badge {
+    display:none; align-items:center; gap:6px;
+    background:linear-gradient(135deg,#FF6B6B,#ff9a3c);
+    color:white; font-size:19px; font-weight:900;
+    padding:6px 18px; border-radius:99px;
+    box-shadow:0 4px 20px rgba(255,107,107,0.45);
+    animation:comboPop 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+  }
+  .combo-badge.visible { display:flex; }
+  @keyframes comboPop { 0%{transform:scale(0.4);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+
+  /* BURST */
+  .burst-overlay { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:999; overflow:hidden; }
+  .burst-particle { position:absolute; font-size:30px; animation:burst 0.9s ease-out forwards; }
+  @keyframes burst { 0%{transform:translate(0,0) scale(1);opacity:1} 100%{transform:translate(var(--tx),var(--ty)) scale(0.2);opacity:0} }
+
+  /* QUESTION */
+  .question-card { background:var(--card); border-radius:28px; padding:26px 24px; text-align:center; box-shadow:var(--shadow); width:100%; }
+  .weak-hint { font-size:12px; font-weight:700; min-height:20px; color:transparent; }
+  .weak-hint.active { color:#FF6B6B; }
+  .question-text { font-size:52px; font-weight:900; letter-spacing:-2px; line-height:1.1; }
+  .eq-sign { color:var(--muted); }
+  .answer-display {
+    margin:16px auto 0; font-size:44px; font-weight:900;
+    width:180px; height:68px; display:flex; align-items:center; justify-content:center;
+    border:3px solid #e0e0e0; border-radius:16px;
+    transition:border-color 0.2s, background 0.2s; user-select:none;
+  }
+  .answer-display.empty { color:#ccc; }
+  .answer-display.correct { border-color:#4ECDC4; background:#f0fdfb; animation:pop 0.3s; }
+  .answer-display.wrong   { border-color:#FF6B6B; background:#fff5f5; animation:shake 0.3s; }
+  @keyframes pop   { 0%{transform:scale(1)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  .feedback-emoji { font-size:40px; display:flex; align-items:center; justify-content:center; min-width:48px; }
+
+  /* NUMPAD */
+  .numpad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; width:100%; }
+  .num-btn {
+    background:var(--card); border:2px solid #e0e0e0; border-radius:16px;
+    font-family:'Nunito',sans-serif; font-size:30px; font-weight:700;
+    padding:18px 10px; cursor:pointer;
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    touch-action:manipulation; user-select:none; transition:transform 0.08s, background 0.08s;
+  }
+  .num-btn:active { transform:scale(0.91); background:#f0f0f0; }
+  .num-btn.del   { background:#fff0f0; border-color:#ffcdd2; color:#e57373; }
+  .num-btn.enter { background:#4ECDC4; border-color:#4ECDC4; color:#085041; font-size:22px; font-weight:900; }
+  .num-btn.enter:active { background:#3dbdb5; }
+
+  /* RESULT */
+  .result-card { background:var(--card); border-radius:28px; padding:40px 28px; text-align:center; box-shadow:var(--shadow); width:100%; }
+  .result-big { font-size:80px; margin-bottom:8px; }
+  .result-score { font-size:52px; font-weight:900; color:var(--add); }
+  .result-label { font-size:16px; color:var(--muted); margin-top:4px; }
+  .result-stats { display:flex; justify-content:center; gap:32px; margin-top:20px; }
+  .result-stat { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .result-stat-val { font-size:26px; font-weight:900; }
+  .result-stat-label { font-size:12px; color:var(--muted); }
+  .result-comment { font-size:16px; font-weight:700; margin-top:14px; color:#FF6B6B; }
+
+  .btn {
+    font-family:'Nunito',sans-serif; font-size:18px; font-weight:700;
+    padding:16px 40px; border-radius:99px; border:none; cursor:pointer;
+    box-shadow:var(--shadow); touch-action:manipulation; transition:transform 0.12s;
+  }
+  .btn:active { transform:scale(0.96); }
+  .btn-primary   { background:var(--add); color:white; }
+  .btn-secondary { background:white; color:var(--text); border:2px solid #e0e0e0; }
+
+  .back-btn { background:none; border:none; font-family:'Nunito',sans-serif; font-size:15px; color:var(--muted); cursor:pointer; align-self:flex-start; padding:8px; touch-action:manipulation; }
+  .section-title { font-size:15px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; align-self:flex-start; }
+  .countdown { font-size:120px; font-weight:900; color:var(--add); animation:countPop 0.7s ease; }
+  @keyframes countPop { 0%{transform:scale(1.6);opacity:0} 100%{transform:scale(1);opacity:1} }
+
+  /* MODE SELECT */
+  .mode-grid { display:grid; grid-template-columns:1fr; gap:12px; width:100%; }
+  .mode-card {
+    background:var(--card); border-radius:var(--radius); padding:18px 22px;
+    cursor:pointer; box-shadow:var(--shadow); border-left:6px solid #ddd;
+    touch-action:manipulation; transition:transform 0.12s;
+    display:flex; align-items:center; gap:16px;
+  }
+  .mode-card:active { transform:scale(0.98); }
+  .mode-card[data-mode="normal"]    { border-color:#4ECDC4; }
+  .mode-card[data-mode="timeBonus"] { border-color:#f0a500; }
+  .mode-card[data-mode="misslimit"] { border-color:#FF6B6B; }
+  .mode-icon { font-size:32px; line-height:1; }
+  .mode-info h3 { font-size:17px; font-weight:700; }
+  .mode-info p  { font-size:12px; color:var(--muted); margin-top:2px; }
+
+  /* HEARTS (misslimit mode) */
+  .hearts-row { display:flex; gap:6px; justify-content:center; font-size:28px; min-height:36px; }
+
+  /* TIME BONUS FLASH */
+  .time-bonus-flash {
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-size:48px; font-weight:900; color:#f0a500;
+    pointer-events:none; z-index:1000;
+    animation:bonusFloat 0.9s ease-out forwards;
+  }
+  @keyframes bonusFloat {
+    0%   { opacity:1; transform:translate(-50%,-50%) scale(1.2); }
+    100% { opacity:0; transform:translate(-50%,-150%) scale(0.8); }
+  }
+
+  /* COMBO GRADES */
+  .combo-badge.grade-b { background:linear-gradient(135deg,#FF6B6B,#ff9a3c); box-shadow:0 4px 20px rgba(255,107,107,0.45); }
+  .combo-badge.grade-a { background:linear-gradient(135deg,#f0a500,#FFE66D); box-shadow:0 6px 24px rgba(240,165,0,0.55); font-size:22px; }
+  .combo-badge.grade-s { background:linear-gradient(135deg,#9B59B6,#e040fb); box-shadow:0 8px 32px rgba(155,89,182,0.65); font-size:25px; letter-spacing:1px; }
+  .combo-badge.grade-ss { background:linear-gradient(135deg,#FF6B6B,#9B59B6,#4ECDC4); box-shadow:0 10px 40px rgba(255,107,107,0.7); font-size:28px; animation:comboPop 0.4s cubic-bezier(0.175,0.885,0.32,1.275), rainbow 1s linear infinite; }
+  @keyframes rainbow { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(360deg)} }
+
+  /* SCREEN FLASH (wrong in misslimit) */
+  .screen-flash { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:998; opacity:0; background:#FF6B6B; }
+  .screen-flash.flash { animation:flashAnim 0.4s ease-out; }
+
+  /* COIN TOAST */
+  .coin-toast {
+    position:fixed; bottom:100px; left:50%; transform:translateX(-50%);
+    background:#2D2D2D; color:#FFE066; font-size:20px; font-weight:900;
+    padding:10px 28px; border-radius:99px; pointer-events:none; z-index:1001;
+    animation:toastUp 1.2s ease-out forwards;
+    white-space:nowrap;
+  }
+  @keyframes toastUp { 0%{opacity:0;transform:translateX(-50%) translateY(10px)} 20%{opacity:1;transform:translateX(-50%) translateY(0)} 70%{opacity:1} 100%{opacity:0;transform:translateX(-50%) translateY(-24px)} }
+
+  /* COIN DISPLAY (home / result) */
+  .coin-bar { display:flex; align-items:center; gap:8px; background:var(--card); border-radius:99px; padding:8px 18px; box-shadow:var(--shadow); font-size:18px; font-weight:900; }
+  .coin-bar .coin-icon { font-size:22px; }
+  .coin-bar .coin-amt  { color:#BA7517; }
+
+  /* NAV TABS */
+  .nav-tabs { display:flex; width:100%; gap:8px; }
+  .nav-tab {
+    flex:1; padding:12px 8px; border-radius:14px; border:2px solid #e0e0e0;
+    background:var(--card); font-family:'Nunito',sans-serif; font-size:14px; font-weight:700;
+    cursor:pointer; touch-action:manipulation; transition:background 0.12s, border-color 0.12s;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  .nav-tab.active { background:#4ECDC4; border-color:#4ECDC4; color:#085041; }
+  .nav-tab-icon { font-size:22px; }
+
+  /* GACHA BUTTONS */
+  .gacha-list { display:flex; flex-direction:column; gap:12px; width:100%; }
+  .gacha-btn {
+    width:100%; border:none; border-radius:18px; padding:16px 18px;
+    display:flex; align-items:center; gap:14px;
+    cursor:pointer; touch-action:manipulation; transition:transform 0.1s;
+    font-family:'Nunito',sans-serif; box-shadow:var(--shadow);
+  }
+  .gacha-btn:active:not(.gacha-locked) { transform:scale(0.97); }
+  .gacha-locked { opacity:0.48; cursor:not-allowed; filter:grayscale(0.35); }
+  .gacha-btn-icon  { font-size:34px; flex-shrink:0; line-height:1; }
+  .gacha-btn-info  { flex:1; text-align:left; }
+  .gacha-btn-title { font-size:16px; font-weight:900; color:white; text-shadow:0 1px 3px rgba(0,0,0,0.2); }
+  .gacha-lock-hint { font-size:11px; color:rgba(255,255,255,0.85); margin-top:3px; }
+  .gacha-btn-cost  { font-size:16px; font-weight:900; color:white; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,0.2); }
+  .rN  { background:#E1F5EE; color:#085041; }
+  .rR  { background:#E6F1FB; color:#0C447C; }
+  .rSR { background:#EEEDFE; color:#3C3489; }
+  .rSSR{ background:#FAEEDA; color:#633806; }
+
+  /* ZUKAN */
+  .zukan-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; width:100%; }
+  .zukan-slot {
+    aspect-ratio:1; border-radius:12px; display:flex; align-items:center; justify-content:center;
+    font-size:26px; background:var(--card); box-shadow:0 2px 8px rgba(0,0,0,0.08);
+    border:2px solid transparent; transition:transform 0.1s; position:relative;
+  }
+  .zukan-slot.got-N   { border-color:#4ECDC4; }
+  .zukan-slot.got-R   { border-color:#378ADD; background:#f0f7ff; }
+  .zukan-slot.got-SR  { border-color:#9B59B6; background:#f5f0ff; }
+  .zukan-slot.got-SSR { border-color:#f0a500; background:#fff9e6; animation:zukanShine 2s ease-in-out infinite; }
+  @keyframes zukanShine { 0%,100%{box-shadow:0 0 6px rgba(240,165,0,0.3)} 50%{box-shadow:0 0 16px rgba(240,165,0,0.9),0 0 30px rgba(240,165,0,0.4)} }
+  .zukan-slot.missing{ background:#f5f5f5; border:2px dashed #ddd; font-size:18px; color:#ccc; }
+  .count-badge {
+    position:absolute; bottom:-5px; right:-5px;
+    background:#FF6B6B; color:white; font-size:9px; font-weight:900;
+    min-width:18px; height:18px; border-radius:99px; padding:0 3px;
+    display:flex; align-items:center; justify-content:center;
+    border:2px solid white; box-shadow:0 1px 4px rgba(0,0,0,0.25);
+    font-family:'Nunito',sans-serif;
+  }
+  .zukan-progress { width:100%; background:#e9e9e9; border-radius:99px; height:12px; overflow:hidden; }
+  .zukan-progress-bar { height:100%; border-radius:99px; background:linear-gradient(90deg,#4ECDC4,#9B59B6); transition:width 0.5s; }
+
+  /* GACHA MODAL */
+  .modal-wrap { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:2000; display:flex; align-items:center; justify-content:center; }
+  .modal-wrap.hidden { display:none; }
+  .modal-box { background:var(--card); border-radius:28px; padding:32px 24px; text-align:center; width:88%; max-width:340px; box-shadow:0 20px 60px rgba(0,0,0,0.35); }
+  .modal-box.modal-ssr  { background:linear-gradient(160deg,#fff9e0,#fff0fa); }
+  .modal-box.modal-dup  { background:#fafafa; }
+  .modal-face { min-height:100px; margin-bottom:10px; display:flex; align-items:center; justify-content:center; animation:popIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275); }
+  .modal-face.shine { animation:popIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275), ssrPulse 1.2s ease-in-out 0.5s infinite; }
+  @keyframes ssrPulse { 0%,100%{transform:scale(1) rotate(-2deg)} 50%{transform:scale(1.1) rotate(2deg)} }
+  .modal-name   { font-size:22px; font-weight:900; margin-bottom:6px; }
+  .modal-rarity { font-size:12px; padding:3px 12px; border-radius:99px; font-weight:700; display:inline-block; margin-bottom:10px; }
+  .modal-dup-label { font-size:13px; color:var(--muted); margin-bottom:4px; }
+  .modal-dup-count  { font-size:40px; font-weight:900; color:#FF6B6B; line-height:1; margin-bottom:14px; }
+  .modal-msg  { font-size:13px; color:var(--muted); margin-bottom:18px; }
+  @keyframes popIn { 0%{transform:scale(0.2);opacity:0} 80%{transform:scale(1.12)} 100%{transform:scale(1);opacity:1} }
+
+  /* 4 GACHA BUTTONS */
+  .gacha-list { display:flex; flex-direction:column; gap:10px; width:100%; }
+  .gacha-btn {
+    width:100%; border:none; border-radius:18px; padding:15px 18px; cursor:pointer;
+    font-family:'Nunito',sans-serif; text-align:left; display:flex; align-items:center; gap:14px;
+    touch-action:manipulation; transition:transform 0.1s, opacity 0.2s;
+  }
+  .gacha-btn:active:not(.gacha-locked) { transform:scale(0.97); }
+  .gacha-btn.gacha-locked { opacity:0.42; cursor:not-allowed; }
+  .gacha-btn-icon { font-size:30px; flex-shrink:0; }
+  .gacha-btn-info { flex:1; }
+  .gacha-btn-title { font-size:15px; font-weight:900; color:white; }
+  .gacha-btn-sub   { font-size:11px; color:rgba(255,255,255,0.85); margin-top:2px; }
+  .gacha-btn-cost  { font-size:14px; font-weight:900; color:white; white-space:nowrap; }
+  .gacha-lock-hint { font-size:10px; background:rgba(0,0,0,0.25); color:white; border-radius:99px; padding:2px 8px; margin-top:3px; display:inline-block; }
+
+  /* RESULT COIN */
+  .result-coin-box { background:#FFF9E6; border:2px solid #FFE066; border-radius:16px; padding:14px 20px; margin-top:16px; display:flex; flex-direction:column; gap:4px; }
+  .result-coin-total { font-size:28px; font-weight:900; color:#BA7517; }
+  .result-coin-detail { font-size:12px; color:var(--muted); }
+  @keyframes flashAnim { 0%{opacity:0.35} 100%{opacity:0} }
+
+  /* ══ GACHA REVEAL ANIMATION ══ */
+  .gacha-reveal-overlay {
+    position:fixed; top:0; left:0; width:100%; height:100%; z-index:3000;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    pointer-events:all; overflow:hidden;
+  }
+  .gacha-reveal-overlay.hidden { display:none; }
+
+  /* ── 段階1: ORB（光る球体） ── */
+  .gacha-orb-wrap {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    display:flex; align-items:center; justify-content:center;
+    z-index:2;
+  }
+  .gacha-orb {
+    width:100px; height:100px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:48px; cursor:pointer;
+    box-shadow:0 0 40px 20px var(--orb-color);
+    animation:orbPulse 0.7s ease-in-out infinite alternate, orbAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+  }
+  @keyframes orbAppear { 0%{transform:scale(0);opacity:0} 100%{transform:scale(1);opacity:1} }
+  @keyframes orbPulse  { 0%{transform:scale(1);box-shadow:0 0 40px 20px var(--orb-color)} 100%{transform:scale(1.08);box-shadow:0 0 70px 35px var(--orb-color)} }
+  .orb-N   { background:radial-gradient(circle,#a8e6cf,#4ECDC4); --orb-color:rgba(78,205,196,0.6); }
+  .orb-R   { background:radial-gradient(circle,#90CAF9,#1565C0); --orb-color:rgba(33,150,243,0.6); }
+  .orb-SR  { background:radial-gradient(circle,#CE93D8,#7B1FA2); --orb-color:rgba(156,39,176,0.7); }
+  .orb-SSR { background:radial-gradient(circle,#FFE082,#FF6F00,#E91E63); --orb-color:rgba(255,160,0,0.8);
+             animation:orbPulse 0.5s ease-in-out infinite alternate, orbAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275), orbRainbow 2s linear infinite; }
+  @keyframes orbRainbow { 0%{filter:hue-rotate(0deg) brightness(1.1)} 100%{filter:hue-rotate(360deg) brightness(1.3)} }
+
+  /* ── ORBタップヒント ── */
+  .orb-hint {
+    position:absolute; bottom:15%; left:50%; transform:translateX(-50%);
+    font-size:15px; font-weight:700; color:white;
+    text-shadow:0 2px 8px rgba(0,0,0,0.4);
+    animation:hintBlink 1s ease-in-out infinite;
+    z-index:3; white-space:nowrap;
+  }
+
+  /* ── 段階2: BREAK エフェクト ── */
+  .gacha-break-flash {
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    background:white; pointer-events:none; z-index:10;
+    opacity:0;
+  }
+  .gacha-break-flash.bang { animation:breakBang 0.5s ease-out forwards; }
+  @keyframes breakBang {
+    0%  {opacity:1}
+    15% {opacity:0.9}
+    100%{opacity:0}
+  }
+
+  /* ── 背景グラデーション ── */
+  .gacha-bg-N   { background:radial-gradient(ellipse at center,#b2f0e8 0%,#4ECDC4 60%,#1a9e95 100%); }
+  .gacha-bg-R   { background:radial-gradient(ellipse at center,#90CAF9 0%,#1976D2 60%,#0D47A1 100%); }
+  .gacha-bg-SR  { background:radial-gradient(ellipse at center,#E1BEE7 0%,#8E24AA 60%,#4A148C 100%); }
+  .gacha-bg-SSR { background:radial-gradient(ellipse at center,#FFF176 0%,#FF6F00 40%,#880E4F 100%);
+                  animation:ssrBgShift 3s ease-in-out infinite; }
+  @keyframes ssrBgShift {
+    0%  {filter:hue-rotate(0deg) brightness(1)}
+    50% {filter:hue-rotate(30deg) brightness(1.15)}
+    100%{filter:hue-rotate(0deg) brightness(1)}
+  }
+
+  /* ── 光の放射 ── */
+  .gacha-rays {
+    position:absolute; top:50%; left:50%;
+    width:800px; height:800px;
+    transform:translate(-50%,-50%);
+    background:conic-gradient(from 0deg,
+      transparent 0deg,   rgba(255,255,255,0.35) 8deg,  transparent 16deg,
+      transparent 30deg,  rgba(255,255,255,0.35) 38deg, transparent 46deg,
+      transparent 60deg,  rgba(255,255,255,0.35) 68deg, transparent 76deg,
+      transparent 90deg,  rgba(255,255,255,0.35) 98deg, transparent 106deg,
+      transparent 120deg, rgba(255,255,255,0.35) 128deg,transparent 136deg,
+      transparent 150deg, rgba(255,255,255,0.35) 158deg,transparent 166deg,
+      transparent 180deg, rgba(255,255,255,0.35) 188deg,transparent 196deg,
+      transparent 210deg, rgba(255,255,255,0.35) 218deg,transparent 226deg,
+      transparent 240deg, rgba(255,255,255,0.35) 248deg,transparent 256deg,
+      transparent 270deg, rgba(255,255,255,0.35) 278deg,transparent 286deg,
+      transparent 300deg, rgba(255,255,255,0.35) 308deg,transparent 316deg,
+      transparent 330deg, rgba(255,255,255,0.35) 338deg,transparent 346deg,
+      transparent 360deg
+    );
+    opacity:0; transition:opacity 0.3s; pointer-events:none;
+  }
+  .gacha-rays.spin { opacity:1; animation:raysSpin 3s linear infinite; }
+  .gacha-rays.spin-fast { opacity:1; animation:raysSpin 1.2s linear infinite; }
+  @keyframes raysSpin {
+    0%  {transform:translate(-50%,-50%) rotate(0deg)}
+    100%{transform:translate(-50%,-50%) rotate(360deg)}
+  }
+
+  /* ── キャラカード ── */
+  .gacha-card-wrap {
+    position:relative; z-index:5;
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+    opacity:0; pointer-events:none;
+  }
+  .gacha-card-wrap.show { opacity:1; pointer-events:all; }
+  .gacha-card {
+    background:white; border-radius:32px; padding:30px 36px 24px;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    transform:scale(0) rotate(-12deg);
+  }
+  .gacha-card.pop-N   { box-shadow:0 24px 60px rgba(0,0,0,0.25);
+                         animation:cardPopN   0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+  .gacha-card.pop-R   { box-shadow:0 24px 80px rgba(21,101,192,0.4);
+                         animation:cardPopN   0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+  .gacha-card.pop-SR  { box-shadow:0 24px 80px rgba(142,36,170,0.5), 0 0 40px rgba(142,36,170,0.3);
+                         animation:cardPopSR  0.7s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+  .gacha-card.pop-SSR { box-shadow:0 24px 80px rgba(255,111,0,0.5), 0 0 80px rgba(255,200,0,0.5), 0 0 120px rgba(233,30,99,0.3);
+                         animation:cardPopSSR 0.8s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+  @keyframes cardPopN {
+    0%  {transform:scale(0) rotate(-12deg); opacity:0}
+    65% {transform:scale(1.1) rotate(2deg); opacity:1}
+    100%{transform:scale(1) rotate(0deg);   opacity:1}
+  }
+  @keyframes cardPopSR {
+    0%  {transform:scale(0) rotate(-15deg); opacity:0}
+    50% {transform:scale(1.18) rotate(3deg); opacity:1}
+    75% {transform:scale(0.95) rotate(-1deg)}
+    100%{transform:scale(1) rotate(0deg); opacity:1}
+  }
+  @keyframes cardPopSSR {
+    0%  {transform:scale(0) rotate(-20deg); opacity:0}
+    40% {transform:scale(1.25) rotate(5deg); opacity:1}
+    65% {transform:scale(0.92) rotate(-2deg)}
+    82% {transform:scale(1.06) rotate(1deg)}
+    100%{transform:scale(1) rotate(0deg); opacity:1}
+  }
+
+  /* ── キャラ絵文字 ── */
+  .gacha-char-display {
+    display:flex; align-items:center; justify-content:center;
+    min-width:120px; min-height:120px;
+  }
+  .gacha-face-emoji {
+    filter:drop-shadow(0 6px 12px rgba(0,0,0,0.2));
+    animation:faceWobble 2s ease-in-out 0.7s infinite;
+  }
+  @keyframes faceWobble { 0%,100%{transform:rotate(-3deg) scale(1)} 50%{transform:rotate(3deg) scale(1.05)} }
+
+  /* ── テキスト ── */
+  .gacha-rarity-badge {
+    font-size:13px; font-weight:900; padding:5px 18px;
+    border-radius:99px; display:inline-block; letter-spacing:1px;
+  }
+  .gacha-char-name { font-size:22px; font-weight:900; color:#2D2D2D; }
+  .gacha-is-new {
+    font-size:13px; font-weight:700; color:white;
+    background:linear-gradient(90deg,#FF6B6B,#ff9a3c);
+    padding:4px 14px; border-radius:99px;
+    animation:newBadgePop 0.5s 0.8s cubic-bezier(0.175,0.885,0.32,1.275) both;
+  }
+  @keyframes newBadgePop { 0%{transform:scale(0) rotate(-10deg)} 70%{transform:scale(1.15)} 100%{transform:scale(1)} }
+  .gacha-dup-info  { font-size:13px; color:#888; }
+  .gacha-dup-count { font-size:36px; font-weight:900; color:#FF6B6B; line-height:1; }
+
+  /* ── フローティングパーティクル ── */
+  .g-particle {
+    position:absolute; pointer-events:none;
+    animation:gParticle var(--dur,1s) var(--delay,0s) ease-out forwards;
+    font-size:var(--sz,20px); z-index:4;
+    left:var(--lx,50%); top:var(--ly,50%);
+  }
+  @keyframes gParticle {
+    0%  {transform:translate(0,0) scale(1) rotate(0deg); opacity:1}
+    100%{transform:translate(var(--tx,0px),var(--ty,-200px)) scale(0.2) rotate(var(--rot,180deg)); opacity:0}
+  }
+
+  /* ── SSR専用: 背景星降り ── */
+  .ssr-star {
+    position:absolute; pointer-events:none; font-size:var(--sz,18px);
+    animation:starFall var(--dur,2s) var(--delay,0s) linear infinite;
+    left:var(--lx,50%); opacity:0;
+  }
+  @keyframes starFall {
+    0%  {transform:translateY(-40px) rotate(0deg);   opacity:0}
+    10% {opacity:1}
+    90% {opacity:1}
+    100%{transform:translateY(110vh) rotate(720deg); opacity:0}
+  }
+
+  /* ── タップヒント ── */
+  .gacha-tap-hint {
+    font-size:15px; font-weight:700; color:rgba(255,255,255,0.9);
+    text-shadow:0 2px 8px rgba(0,0,0,0.35);
+    animation:hintBlink 1s ease-in-out 1s infinite;
+    position:relative; z-index:6; white-space:nowrap;
+  }
+  @keyframes hintBlink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+  @keyframes hintBlink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+</style>
+</head>
+<body>
+<div class="burst-overlay" id="burst-overlay"></div>
+<div class="screen-flash" id="screen-flash"></div>
+<div class="app">
+
+  <!-- HOME -->
+  <div class="screen active" id="screen-home">
+    <div class="logo">
+      <div class="star">⭐ ⭐ ⭐</div>
+      <h1>かん<span>さん</span><br>マスター</h1>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+      <p style="color:var(--muted);font-size:15px;">なにをれんしゅうする？</p>
+      <div class="coin-bar"><span class="coin-icon">🪙</span><span class="coin-amt" id="home-coin">0</span></div>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" id="tab-game" onclick="switchTab('game')"><span class="nav-tab-icon">🧮</span>もんだい</button>
+      <button class="nav-tab" id="tab-shop" onclick="switchTab('shop')"><span class="nav-tab-icon">🏪</span>ショップ</button>
+      <button class="nav-tab" id="tab-zukan" onclick="switchTab('zukan')"><span class="nav-tab-icon">📖</span>ずかん</button>
+    </div>
+    <div class="op-grid">
+      <div class="op-card" data-op="add"><div class="op-symbol">＋</div><div class="op-name">たしざん</div></div>
+      <div class="op-card" data-op="sub"><div class="op-symbol">－</div><div class="op-name">ひきざん</div></div>
+      <div class="op-card" data-op="mul"><div class="op-symbol">×</div><div class="op-name">かけざん</div></div>
+      <div class="op-card" data-op="div"><div class="op-symbol">÷</div><div class="op-name">わりざん</div></div>
+    </div>
+
+    <!-- SHOP TAB -->
+    <div id="home-shop" style="display:none;width:100%;flex-direction:column;gap:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:15px;font-weight:700;color:var(--muted);">ガチャをひこう！</div>
+        <div class="coin-bar" style="padding:6px 14px;"><span class="coin-icon">🪙</span><span class="coin-amt" id="shop-coin">0</span></div>
+      </div>
+      <div class="gacha-list" id="gacha-list"></div>
+    </div>
+
+    <!-- ZUKAN TAB -->
+    <div id="home-zukan" style="display:none;width:100%;flex-direction:column;gap:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:15px;font-weight:700;color:var(--muted);">ずかん</div>
+        <div style="font-size:13px;color:var(--muted);" id="zukan-count-label">0 / 0</div>
+      </div>
+      <div class="zukan-progress"><div class="zukan-progress-bar" id="zukan-bar" style="width:0%"></div></div>
+      <div class="zukan-grid" id="zukan-grid"></div>
+    </div>
+  </div>
+
+  <!-- GACHA MODAL -->
+  <div class="modal-wrap hidden" id="gacha-modal">
+    <div class="modal-box" id="modal-box">
+      <div class="modal-face" id="modal-face">🎁</div>
+      <div class="modal-name" id="modal-name">???</div>
+      <div class="modal-rarity" id="modal-rarity">レア</div>
+      <div id="modal-dup-area" style="display:none;">
+        <div class="modal-dup-label">もってるよ！ × </div>
+        <div class="modal-dup-count" id="modal-dup-count">2</div>
+      </div>
+      <div class="modal-msg" id="modal-msg"></div>
+      <button class="btn btn-primary" style="width:100%;" onclick="closeGachaModal()">やったー！</button>
+    </div>
+  </div>
+
+  <!-- GACHA REVEAL OVERLAY -->
+  <div class="gacha-reveal-overlay hidden" id="gacha-reveal">
+    <!-- 背景光線 -->
+    <div class="gacha-rays" id="gacha-rays"></div>
+    <!-- フラッシュ -->
+    <div class="gacha-break-flash" id="gacha-break-flash"></div>
+    <!-- ORBフェーズ -->
+    <div class="gacha-orb-wrap" id="gacha-orb-wrap">
+      <div class="gacha-orb orb-N" id="gacha-orb">🎁</div>
+    </div>
+    <div class="orb-hint" id="orb-hint">タップしてあける！</div>
+    <!-- カードフェーズ -->
+    <div class="gacha-card-wrap" id="gacha-card-wrap">
+      <div class="gacha-card" id="gacha-card">
+        <div class="gacha-char-display" id="gacha-char-display"></div>
+        <div class="gacha-rarity-badge rN" id="gacha-rarity-badge">N</div>
+        <div class="gacha-char-name" id="gacha-char-name">???</div>
+        <div id="gacha-new-badge" class="gacha-is-new" style="display:none">✨ はじめて！</div>
+        <div id="gacha-dup-area" style="display:none; text-align:center;">
+          <div class="gacha-dup-info">もってるよ！</div>
+          <div class="gacha-dup-count" id="gacha-dup-count">×2</div>
+        </div>
+      </div>
+      <div class="gacha-tap-hint">タップしてとじる</div>
+    </div>
+  </div>
+
+  <!-- DIFFICULTY -->
+  <div class="screen" id="screen-diff">
+    <button class="back-btn" id="back-from-diff">← もどる</button>
+    <div class="section-title">むずかしさをえらんでね</div>
+    <div class="diff-list" id="diff-list">
+      <!-- JS で動的に生成 -->
+    </div>
+  </div>
+
+  <!-- MODE SELECT -->
+  <div class="screen" id="screen-mode">
+    <button class="back-btn" id="back-from-mode">← もどる</button>
+    <div class="section-title">モードをえらんでね</div>
+    <div class="mode-grid">
+      <div class="mode-card" data-mode="normal">
+        <div class="mode-icon">⏱</div>
+        <div class="mode-info"><h3>ノーマル</h3><p>60びょうでなんもんとけるかな？</p></div>
+      </div>
+      <div class="mode-card" data-mode="timeBonus">
+        <div class="mode-icon">⚡</div>
+        <div class="mode-info"><h3>タイムボーナス</h3><p>せいかいするたびに＋3びょう！</p></div>
+      </div>
+      <div class="mode-card" data-mode="misslimit">
+        <div class="mode-icon">❤️</div>
+        <div class="mode-info"><h3>3ミスおわり</h3><p>まちがえたら❤️がへる。3かいでおわり！</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COUNTDOWN -->
+  <div class="screen" id="screen-count">
+    <div class="countdown" id="countdown-num">3</div>
+  </div>
+
+  <!-- GAME -->
+  <div class="screen" id="screen-game">
+    <div class="timer-bar-wrap">
+      <div class="timer-bar" id="timer-bar"></div>
+    </div>
+    <div class="stats-row">
+      <div id="timer-label">⏱ <span class="stat-val" id="time-left">60</span>びょう</div>
+      <div class="combo-area">
+        <div class="combo-badge" id="combo-badge"><span id="combo-label">🔥</span> <span id="combo-num">5</span><span id="combo-suffix">れんぞく！</span></div>
+      </div>
+      <div>✅ <span class="stat-val" id="correct-count">0</span>もん</div>
+    </div>
+    <div class="hearts-row" id="hearts-row"></div>
+    <div class="question-card">
+      <div class="weak-hint" id="weak-hint">　</div>
+      <div class="question-text" id="question-text"></div>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-top:16px;">
+        <div class="answer-display empty" id="answer-display">？</div>
+        <div class="feedback-emoji" id="feedback-emoji"></div>
+      </div>
+      <button class="num-btn enter" data-n="enter" style="width:100%;margin-top:14px;grid-column:unset;">こたえる ✓</button>
+    </div>
+    <div class="numpad">
+      <button class="num-btn" data-n="7">7</button>
+      <button class="num-btn" data-n="8">8</button>
+      <button class="num-btn" data-n="9">9</button>
+      <button class="num-btn" data-n="4">4</button>
+      <button class="num-btn" data-n="5">5</button>
+      <button class="num-btn" data-n="6">6</button>
+      <button class="num-btn" data-n="1">1</button>
+      <button class="num-btn" data-n="2">2</button>
+      <button class="num-btn" data-n="3">3</button>
+      <button class="num-btn del" data-n="del">⌫</button>
+      <button class="num-btn" data-n="0" style="grid-column:span 2;">0</button>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="screen" id="screen-result">
+    <div class="result-card">
+      <div class="result-big" id="result-emoji">🎉</div>
+      <div class="result-score" id="result-score">0</div>
+      <div class="result-label">もん せいかい！</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px;" id="result-mode-label"></div>
+      <div class="result-stats">
+        <div class="result-stat">
+          <div class="result-stat-val" id="result-accuracy">0%</div>
+          <div class="result-stat-label">せいかいりつ</div>
+        </div>
+        <div class="result-stat">
+          <div class="result-stat-val" id="result-max-combo">0</div>
+          <div class="result-stat-label">さいこうコンボ</div>
+        </div>
+      </div>
+      <div class="result-comment" id="result-comment"></div>
+      <div class="result-coin-box" id="result-coin-box">
+        <div style="font-size:13px;font-weight:700;color:var(--muted);">🪙 コインかくとく</div>
+        <div class="result-coin-total" id="result-coin-total">+0</div>
+        <div class="result-coin-detail" id="result-coin-detail"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+      <button class="btn btn-primary" id="retry-btn">もういちど！</button>
+      <button class="btn btn-secondary" id="home-btn">もどる</button>
+    </div>
+  </div>
+
+</div>
+<script>
+/* ═══════════════════════════════════════
+   難易度定義
+   ═══════════════════════════════════════ */
+
+// add / sub は 5 段階、mul / div は 3 段階
+const DIFF_DEFS = {
+  add: [
+    { key:'superEasy',  label:'ひよこ',      stars:'🐣', color:'#A8E6CF' },
+    { key:'easy',       label:'いちねんせい', stars:'⭐',  color:'#4ECDC4' },
+    { key:'normal',     label:'にねんせい',   stars:'⭐⭐', color:'#f0a500' },
+    { key:'mediumHard', label:'さんねんせい', stars:'⭐⭐⭐', color:'#FF8C42' },
+    { key:'hard',       label:'よんねんせい', stars:'🔥',  color:'#FF6B6B' },
+    { key:'veryHard',   label:'てんさい',    stars:'👑',  color:'#9B59B6' },
+  ],
+  sub: [
+    { key:'superEasy',  label:'ひよこ',      stars:'🐣', color:'#A8E6CF' },
+    { key:'easy',       label:'いちねんせい', stars:'⭐',  color:'#4ECDC4' },
+    { key:'normal',     label:'にねんせい',   stars:'⭐⭐', color:'#f0a500' },
+    { key:'mediumHard', label:'さんねんせい', stars:'⭐⭐⭐', color:'#FF8C42' },
+    { key:'hard',       label:'よんねんせい', stars:'🔥',  color:'#FF6B6B' },
+    { key:'veryHard',   label:'てんさい',    stars:'👑',  color:'#9B59B6' },
+  ],
+  mul: [
+    { key:'easy',   label:'ひよこ',   stars:'🐣', color:'#4ECDC4' },
+    { key:'normal', label:'ふつう',   stars:'⭐⭐', color:'#f0a500' },
+    { key:'hard',   label:'てんさい', stars:'👑', color:'#FF6B6B' },
+  ],
+  div: [
+    { key:'easy',   label:'ひよこ',   stars:'🐣', color:'#4ECDC4' },
+    { key:'normal', label:'ふつう',   stars:'⭐⭐', color:'#f0a500' },
+    { key:'hard',   label:'てんさい', stars:'👑', color:'#FF6B6B' },
+  ],
+};
+
+/* ═══════════════════════════════════════
+   問題生成ロジック
+   ═══════════════════════════════════════ */
+
+function ri(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+// 繰り上がり判定: 一の位の和が10以上
+function hasCarry(a,b){ return (a%10)+(b%10) >= 10; }
+// 繰り下がり判定: 一の位で引けない
+function hasBorrow(a,b){ return (a%10) < (b%10); }
+
+function randomQ_add(diff){
+  let a,b, tries=0;
+  while(tries<200){
+    tries++;
+    switch(diff){
+      case 'superEasy':
+        // 1桁同士、繰り上がりなし（答え≤9）
+        a=ri(1,9); b=ri(1,9-a);
+        if(a+b<=9 && !hasCarry(a,b)) return {a,b,ans:a+b};
+        break;
+      case 'easy':
+        // 1桁＋1桁（答え≤18）普通のたしざん
+        a=ri(1,9); b=ri(1,9);
+        return {a,b,ans:a+b};
+      case 'normal':
+        // 2桁+1桁（答え≤50）
+        a=ri(10,49); b=ri(1,9);
+        if(a+b<=50) return {a,b,ans:a+b};
+        break;
+      case 'mediumHard':
+        // 2桁＋1桁、繰り上がりあり（答え≤100）
+        a=ri(11,90); b=ri(1,9);
+        if(hasCarry(a,b) && a+b<=100) return {a,b,ans:a+b};
+        break;
+      case 'hard':
+        // 2桁＋2桁、繰り上がりあり（答え≤100）
+        a=ri(11,89); b=ri(11,99-a);
+        if(hasCarry(a,b) && a+b<=100) return {a,b,ans:a+b};
+        break;
+      case 'veryHard':
+        // 2桁＋2桁（繰り上がり問わず、答え≤100）
+        a=ri(10,89); b=ri(10,99-a);
+        if(a+b<=100) return {a,b,ans:a+b};
+        break;
+    }
+  }
+  // フォールバック
+  a=ri(1,9); b=ri(1,9); return {a,b,ans:a+b};
+}
+
+function randomQ_sub(diff){
+  let a,b, tries=0;
+  while(tries<200){
+    tries++;
+    switch(diff){
+      case 'superEasy':
+        // 繰り下がりなし（一の位で引ける）、答え≥0
+        a=ri(1,9); b=ri(0,a);
+        if(!hasBorrow(a,b)) return {a,b,ans:a-b};
+        break;
+      case 'easy':
+        // 1桁から1桁を引く（答え0〜8）
+        a=ri(1,9); b=ri(0,a);
+        return {a,b,ans:a-b};
+      case 'normal':
+        // 2桁 - 1桁（答え≥1）
+        a=ri(11,50); b=ri(1,9);
+        if(a-b>=1 && a-b<50) return {a,b,ans:a-b};
+        break;
+      case 'mediumHard':
+        // 2桁 - 1桁、繰り下がりあり（答え≥1）
+        a=ri(11,90); b=ri(1,9);
+        if(hasBorrow(a,b) && a-b>=1) return {a,b,ans:a-b};
+        break;
+      case 'hard':
+        // 2桁 - 2桁、繰り下がりあり（答え≥1）
+        a=ri(21,99); b=ri(11,a-1);
+        if(hasBorrow(a,b) && a-b>=1) return {a,b,ans:a-b};
+        break;
+      case 'veryHard':
+        // 2桁 - 2桁（繰り下がり問わず、答え≥1）
+        a=ri(11,99); b=ri(10,a-1);
+        if(a-b>=1) return {a,b,ans:a-b};
+        break;
+    }
+  }
+  a=ri(2,9); b=ri(1,a); return {a,b,ans:a-b};
+}
+
+function randomQ_mul(diff){
+  const maxMap={easy:5,normal:9,hard:12};
+  const max=maxMap[diff]||9;
+  const a=ri(1,max), b=ri(1,max);
+  return {a,b,ans:a*b};
+}
+
+function randomQ_div(diff){
+  const maxMap={easy:5,normal:9,hard:12};
+  const max=maxMap[diff]||9;
+  const b=ri(2,max), a=b*ri(1,max);
+  return {a,b,ans:a/b};
+}
+
+function randomQ(){
+  const op=state.op, diff=state.diff;
+  if(op==='add') return randomQ_add(diff);
+  if(op==='sub') return randomQ_sub(diff);
+  if(op==='mul') return randomQ_mul(diff);
+  return randomQ_div(diff);
+}
+
+/* ═══════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════ */
+/* ══ キャラクターマスターデータ (130体) ══
+   画像1(50体) → N30体+R20体  画像2+3(60体) → SR  画像4(20体) → SSR
+   後からface絵文字→画像スプライト座標に差し替え可能な構造
+   ══ */
+const CHARS = [
+  {id:'n00',face:'🐣',name:'ひよこ',rarity:'N',unlockCond:null},
+  {id:'n01',face:'🐤',name:'こひよこ',rarity:'N',unlockCond:null},
+  {id:'n02',face:'🐥',name:'まえむきひよこ',rarity:'N',unlockCond:null},
+  {id:'n03',face:'🐰',name:'うさぎ',rarity:'N',unlockCond:null},
+  {id:'n04',face:'🐹',name:'はむすたー',rarity:'N',unlockCond:null},
+  {id:'n05',face:'🐭',name:'ねずみ',rarity:'N',unlockCond:null},
+  {id:'n06',face:'🐱',name:'ねこ',rarity:'N',unlockCond:null},
+  {id:'n07',face:'🐶',name:'いぬ',rarity:'N',unlockCond:null},
+  {id:'n08',face:'🐻',name:'くま',rarity:'N',unlockCond:null},
+  {id:'n09',face:'🐼',name:'ぱんだ',rarity:'N',unlockCond:null},
+  {id:'n10',face:'🐨',name:'こあら',rarity:'N',unlockCond:null},
+  {id:'n11',face:'🐸',name:'かえる',rarity:'N',unlockCond:null},
+  {id:'n12',face:'🐧',name:'ぺんぎん',rarity:'N',unlockCond:null},
+  {id:'n13',face:'🐦',name:'とり',rarity:'N',unlockCond:null},
+  {id:'n14',face:'🦆',name:'あひる',rarity:'N',unlockCond:null},
+  {id:'n15',face:'🦉',name:'ふくろう',rarity:'N',unlockCond:null},
+  {id:'n16',face:'🐺',name:'おおかみ',rarity:'N',unlockCond:null},
+  {id:'n17',face:'🦊',name:'きつね',rarity:'N',unlockCond:null},
+  {id:'n18',face:'🐗',name:'いのしし',rarity:'N',unlockCond:null},
+  {id:'n19',face:'🐴',name:'うま',rarity:'N',unlockCond:null},
+  {id:'n20',face:'🦓',name:'しまうま',rarity:'N',unlockCond:null},
+  {id:'n21',face:'🐮',name:'うし',rarity:'N',unlockCond:null},
+  {id:'n22',face:'🐷',name:'ぶた',rarity:'N',unlockCond:null},
+  {id:'n23',face:'🐑',name:'ひつじ',rarity:'N',unlockCond:null},
+  {id:'n24',face:'🐐',name:'やぎ',rarity:'N',unlockCond:null},
+  {id:'n25',face:'🦙',name:'りゃま',rarity:'N',unlockCond:null},
+  {id:'n26',face:'🦘',name:'かんがるー',rarity:'N',unlockCond:null},
+  {id:'n27',face:'🦔',name:'はりねずみ',rarity:'N',unlockCond:null},
+  {id:'n28',face:'🐿',name:'りす',rarity:'N',unlockCond:null},
+  {id:'n29',face:'🦫',name:'びーばー',rarity:'N',unlockCond:null},
+  {id:'n30',face:'🦦',name:'かわうそ',rarity:'N',unlockCond:null},
+  {id:'n31',face:'🦥',name:'なまけもの',rarity:'N',unlockCond:null},
+  {id:'n32',face:'🐇',name:'しろうさぎ',rarity:'N',unlockCond:null},
+  {id:'n33',face:'🐈',name:'しまねこ',rarity:'N',unlockCond:null},
+  {id:'n34',face:'🐩',name:'ぷーどる',rarity:'N',unlockCond:null},
+  {id:'n35',face:'🐕',name:'しばいぬ',rarity:'N',unlockCond:null},
+  {id:'n36',face:'🦮',name:'もうどうけん',rarity:'N',unlockCond:null},
+  {id:'n37',face:'🐈‍⬛',name:'くろねこ',rarity:'N',unlockCond:null},
+  {id:'n38',face:'🐓',name:'にわとり',rarity:'N',unlockCond:null},
+  {id:'n39',face:'🦃',name:'しちめんちょう',rarity:'N',unlockCond:null},
+  {id:'n40',face:'🕊',name:'はと',rarity:'N',unlockCond:null},
+  {id:'n41',face:'🦜',name:'おうむ',rarity:'N',unlockCond:null},
+  {id:'n42',face:'🦢',name:'はくちょう',rarity:'N',unlockCond:null},
+  {id:'n43',face:'🦩',name:'ふらみんご',rarity:'N',unlockCond:null},
+  {id:'n44',face:'🦝',name:'あらいぐま',rarity:'N',unlockCond:null},
+  {id:'n45',face:'🐻‍❄️',name:'しろくま',rarity:'N',unlockCond:null},
+  {id:'n46',face:'🦨',name:'スカンク',rarity:'N',unlockCond:null},
+  {id:'n47',face:'🦡',name:'あなぐま',rarity:'N',unlockCond:null},
+  {id:'n48',face:'🐾',name:'あしあと',rarity:'N',unlockCond:null},
+  {id:'n49',face:'🌼',name:'たんぽぽ',rarity:'N',unlockCond:null},
+  {id:'r00',face:'🐯',name:'とら',rarity:'R',unlockCond:null},
+  {id:'r01',face:'🦁',name:'らいおん',rarity:'R',unlockCond:null},
+  {id:'r02',face:'🐆',name:'ひょう',rarity:'R',unlockCond:null},
+  {id:'r03',face:'🐅',name:'とら２',rarity:'R',unlockCond:null},
+  {id:'r04',face:'🐘',name:'ぞう',rarity:'R',unlockCond:null},
+  {id:'r05',face:'🦏',name:'さいむ',rarity:'R',unlockCond:null},
+  {id:'r06',face:'🦛',name:'かば',rarity:'R',unlockCond:null},
+  {id:'r07',face:'🦒',name:'きりん',rarity:'R',unlockCond:null},
+  {id:'r08',face:'🦬',name:'バイソン',rarity:'R',unlockCond:null},
+  {id:'r09',face:'🦌',name:'しか',rarity:'R',unlockCond:null},
+  {id:'r10',face:'🐃',name:'みずぎゅう',rarity:'R',unlockCond:null},
+  {id:'r11',face:'🐂',name:'おうし',rarity:'R',unlockCond:null},
+  {id:'r12',face:'🦧',name:'オランウータン',rarity:'R',unlockCond:null},
+  {id:'r13',face:'🦍',name:'ごりら',rarity:'R',unlockCond:null},
+  {id:'r14',face:'🐒',name:'さる',rarity:'R',unlockCond:null},
+  {id:'r15',face:'🐵',name:'おさる',rarity:'R',unlockCond:null},
+  {id:'r16',face:'🦈',name:'さめ',rarity:'R',unlockCond:null},
+  {id:'r17',face:'🐬',name:'いるか',rarity:'R',unlockCond:null},
+  {id:'r18',face:'🐳',name:'くじら',rarity:'R',unlockCond:null},
+  {id:'r19',face:'🦭',name:'あざらし',rarity:'R',unlockCond:null},
+  {id:'r20',face:'🐊',name:'わに',rarity:'R',unlockCond:null},
+  {id:'r21',face:'🦎',name:'とかげ',rarity:'R',unlockCond:null},
+  {id:'r22',face:'🐢',name:'かめ',rarity:'R',unlockCond:null},
+  {id:'r23',face:'🐍',name:'へび',rarity:'R',unlockCond:null},
+  {id:'r24',face:'🦕',name:'きょうりゅう',rarity:'R',unlockCond:null},
+  {id:'r25',face:'🦖',name:'ティラノ',rarity:'R',unlockCond:null},
+  {id:'r26',face:'🦋',name:'ちょうちょ',rarity:'R',unlockCond:null},
+  {id:'r27',face:'🐛',name:'いもむし',rarity:'R',unlockCond:null},
+  {id:'r28',face:'🐌',name:'かたつむり',rarity:'R',unlockCond:null},
+  {id:'r29',face:'🦗',name:'こおろぎ',rarity:'R',unlockCond:null},
+  {id:'r30',face:'🐝',name:'みつばち',rarity:'R',unlockCond:null},
+  {id:'r31',face:'🪲',name:'かぶとむし',rarity:'R',unlockCond:null},
+  {id:'r32',face:'🕷',name:'くも',rarity:'R',unlockCond:null},
+  {id:'r33',face:'🦂',name:'さそり',rarity:'R',unlockCond:null},
+  {id:'r34',face:'🐡',name:'ふぐ',rarity:'R',unlockCond:null},
+  {id:'r35',face:'🐠',name:'ねったいぎょ',rarity:'R',unlockCond:null},
+  {id:'r36',face:'🐟',name:'さかな',rarity:'R',unlockCond:null},
+  {id:'r37',face:'🐙',name:'たこ',rarity:'R',unlockCond:null},
+  {id:'r38',face:'🦑',name:'いか',rarity:'R',unlockCond:null},
+  {id:'r39',face:'🦀',name:'かに',rarity:'R',unlockCond:null},
+  {id:'r40',face:'🦞',name:'ロブスター',rarity:'R',unlockCond:null},
+  {id:'r41',face:'🦐',name:'えび',rarity:'R',unlockCond:null},
+  {id:'r42',face:'🪸',name:'さんご',rarity:'R',unlockCond:null},
+  {id:'r43',face:'🐚',name:'かいがら',rarity:'R',unlockCond:null},
+  {id:'r44',face:'🦔',name:'はりねずみ２',rarity:'R',unlockCond:null},
+  {id:'r45',face:'🦫',name:'ビーバー２',rarity:'R',unlockCond:null},
+  {id:'r46',face:'🦦',name:'うみうそ',rarity:'R',unlockCond:null},
+  {id:'r47',face:'🦨',name:'レッサーパンダ',rarity:'R',unlockCond:null},
+  {id:'r48',face:'🐾',name:'きんあしあと',rarity:'R',unlockCond:null},
+  {id:'r49',face:'🌺',name:'はいびすかす',rarity:'R',unlockCond:null},
+  {id:'s00',face:'🦄',name:'ユニコーン',rarity:'SR',unlockCond:null},
+  {id:'s01',face:'🐲',name:'ドラゴン',rarity:'SR',unlockCond:null},
+  {id:'s02',face:'🐉',name:'りゅう',rarity:'SR',unlockCond:null},
+  {id:'s03',face:'🔮',name:'まほうだま',rarity:'SR',unlockCond:null},
+  {id:'s04',face:'⭐',name:'きんのほし',rarity:'SR',unlockCond:null},
+  {id:'s05',face:'🌟',name:'かがやくほし',rarity:'SR',unlockCond:null},
+  {id:'s06',face:'💫',name:'ながれぼし',rarity:'SR',unlockCond:null},
+  {id:'s07',face:'✨',name:'きらきら',rarity:'SR',unlockCond:null},
+  {id:'s08',face:'🌈',name:'にじ',rarity:'SR',unlockCond:null},
+  {id:'s09',face:'☄️',name:'すいせい',rarity:'SR',unlockCond:null},
+  {id:'s10',face:'🌙',name:'みかづき',rarity:'SR',unlockCond:null},
+  {id:'s11',face:'🌕',name:'まんげつ',rarity:'SR',unlockCond:null},
+  {id:'s12',face:'🌸',name:'さくら',rarity:'SR',unlockCond:null},
+  {id:'s13',face:'🌻',name:'ひまわり',rarity:'SR',unlockCond:null},
+  {id:'s14',face:'🍀',name:'よつばのクローバー',rarity:'SR',unlockCond:null},
+  {id:'s15',face:'🎠',name:'メリーゴーランド',rarity:'SR',unlockCond:null},
+  {id:'s16',face:'🏰',name:'おしろ',rarity:'SR',unlockCond:null},
+  {id:'s17',face:'⛩',name:'とりい',rarity:'SR',unlockCond:null},
+  {id:'s18',face:'🧚',name:'ようせい',rarity:'SR',unlockCond:null},
+  {id:'s19',face:'🧜',name:'にんぎょ',rarity:'SR',unlockCond:null},
+  {id:'s20',face:'🧝',name:'エルフ',rarity:'SR',unlockCond:null},
+  {id:'s21',face:'🧙',name:'まほうつかい',rarity:'SR',unlockCond:null},
+  {id:'s22',face:'🎪',name:'サーカス',rarity:'SR',unlockCond:null},
+  {id:'s23',face:'🎭',name:'かぶき',rarity:'SR',unlockCond:null},
+  {id:'s24',face:'🎨',name:'パレット',rarity:'SR',unlockCond:null},
+  {id:'s25',face:'🎸',name:'ギター',rarity:'SR',unlockCond:null},
+  {id:'s26',face:'🥁',name:'たいこ',rarity:'SR',unlockCond:null},
+  {id:'s27',face:'🎺',name:'トランペット',rarity:'SR',unlockCond:null},
+  {id:'s28',face:'🌊',name:'なみ',rarity:'SR',unlockCond:null},
+  {id:'s29',face:'🌋',name:'かざん',rarity:'SR',unlockCond:null},
+  {id:'q00',face:'👑',name:'おうかん',rarity:'SSR',unlockCond:null},
+  {id:'q01',face:'💎',name:'ダイヤモンド',rarity:'SSR',unlockCond:null},
+  {id:'q02',face:'🏆',name:'トロフィー',rarity:'SSR',unlockCond:null},
+  {id:'q03',face:'🎖',name:'きんメダル',rarity:'SSR',unlockCond:null},
+  {id:'q04',face:'🌌',name:'ぎんが',rarity:'SSR',unlockCond:null},
+  {id:'q05',face:'🪄',name:'まほうのつえ',rarity:'SSR',unlockCond:{type:'diff',n:3}},
+  {id:'q06',face:'⚡',name:'いなずま',rarity:'SSR',unlockCond:{type:'diff',n:3}},
+  {id:'q07',face:'🔥',name:'ほのお',rarity:'SSR',unlockCond:{type:'diff',n:3}},
+  {id:'q08',face:'❄️',name:'こおり',rarity:'SSR',unlockCond:{type:'diff',n:3}},
+  {id:'q09',face:'🌪',name:'たつまき',rarity:'SSR',unlockCond:{type:'diff',n:3}},
+  {id:'q10',face:'🦅',name:'わしおう',rarity:'SSR',unlockCond:{type:'combo',n:20}},
+  {id:'q11',face:'🦁',name:'おうのらいおん',rarity:'SSR',unlockCond:{type:'combo',n:20}},
+  {id:'q12',face:'🦋',name:'きんのちょうちょ',rarity:'SSR',unlockCond:{type:'combo',n:20}},
+  {id:'q13',face:'👸',name:'おひめさま',rarity:'SSR',unlockCond:{type:'combo',n:20}},
+  {id:'q14',face:'🤴',name:'おうじさま',rarity:'SSR',unlockCond:{type:'combo',n:20}},
+  {id:'q15',face:'🧿',name:'まよけのたま',rarity:'SSR',unlockCond:{type:'perfect',n:3}},
+  {id:'q16',face:'🌟',name:'かみのほし',rarity:'SSR',unlockCond:{type:'perfect',n:3}},
+  {id:'q17',face:'🐲',name:'しんりゅう',rarity:'SSR',unlockCond:{type:'perfect',n:3}},
+  {id:'q18',face:'💫',name:'こうてい',rarity:'SSR',unlockCond:{type:'perfect',n:3}},
+  {id:'q19',face:'🎆',name:'はなび',rarity:'SSR',unlockCond:{type:'perfect',n:3}},
+];
+
+/* spriteStyle: emoji mode */
+
+/* ══ 4種ガチャ定義 ══ */
+const GACHA_DEFS = [
+  {
+    id:'normal', label:'ノーマルガチャ', icon:'🌿', cost:30,
+    bg:'linear-gradient(135deg,#1D9E75,#4ECDC4)',
+    rates:{N:0.80, R:0.20, SR:0.00, SSR:0.00},
+    lockCond: null,
+    lockHint: '',
+  },
+  {
+    id:'sr', label:'SRガチャ', icon:'🔮', cost:80,
+    bg:'linear-gradient(135deg,#7F77DD,#9B59B6)',
+    rates:{N:0.40, R:0.42, SR:0.16, SSR:0.02},
+    lockCond: {type:'clearCount', n:10},
+    lockHint: 'にねんせい以上を10回クリアで解放',
+  },
+  {
+    id:'ssr', label:'SSRガチャ', icon:'👑', cost:150,
+    bg:'linear-gradient(135deg,#f0a500,#e85d04)',
+    rates:{N:0.25, R:0.38, SR:0.30, SSR:0.07},
+    lockCond: {type:'veryHardCount', n:3},
+    lockHint: 'てんさいを3回クリアで解放',
+  },
+  {
+    id:'rainbow', label:'レインボーガチャ', icon:'🎰', cost:300,
+    bg:'linear-gradient(135deg,#FF6B6B,#9B59B6,#4ECDC4)',
+    rates:{N:0.10, R:0.20, SR:0.55, SSR:0.15},
+    lockCond: {type:'zukan', pct:60},
+    lockHint: 'ずかん60%達成で解放',
+  },
+];
+
+const RARITY_LABEL = {N:'ノーマル', R:'レア', SR:'スーパーレア', SSR:'ちょうレア！'};
+const RARITY_CSS   = {N:'rN', R:'rR', SR:'rSR', SSR:'rSSR'};
+
+/* ══ 永続ストレージ (localStorage) ══ */
+function saveData(){
+  localStorage.setItem('kansanCoins',       String(persist.coins));
+  localStorage.setItem('kansanOwned',       JSON.stringify([...persist.owned]));
+  localStorage.setItem('kansanCounts',      JSON.stringify(persist.counts));
+  localStorage.setItem('kansanPerfectCount',String(persist.perfectCount));
+  localStorage.setItem('kansanVeryHardCount',String(persist.veryHardCount));
+  localStorage.setItem('kansanClearCount',  String(persist.clearCount));
+  localStorage.setItem('kansanMaxComboEver',String(persist.maxComboEver));
+}
+function loadData(){
+  persist.coins         = parseInt(localStorage.getItem('kansanCoins')||'0');
+  persist.owned         = new Set(JSON.parse(localStorage.getItem('kansanOwned')||'[]'));
+  persist.counts        = JSON.parse(localStorage.getItem('kansanCounts')||'{}');
+  persist.perfectCount  = parseInt(localStorage.getItem('kansanPerfectCount')||'0');
+  persist.veryHardCount = parseInt(localStorage.getItem('kansanVeryHardCount')||'0');
+  persist.clearCount    = parseInt(localStorage.getItem('kansanClearCount')||'0');
+  persist.maxComboEver  = parseInt(localStorage.getItem('kansanMaxComboEver')||'0');
+}
+const persist = { coins:0, owned:new Set(), counts:{}, perfectCount:0, veryHardCount:0, clearCount:0, maxComboEver:0 };
+loadData();
+
+/* ══ コイン計算 ══ */
+const DIFF_MULT = {superEasy:1, easy:1, normal:1.5, mediumHard:2, hard:2.5, veryHard:3};
+const MODE_MULT = {normal:1, timeBonus:1.2, misslimit:2};
+function calcCoins(correct, total, maxCombo, diff, mode, isFirstClear){
+  const details = [];
+  let base = correct;
+  details.push(`せいかい ${correct}もん → 🪙${correct}`);
+
+  const dm = DIFF_MULT[diff]||1;
+  if(dm>1){ base=Math.round(base*dm); details.push(`むずかしさボーナス ×${dm}`); }
+
+  const mm = MODE_MULT[mode]||1;
+  if(mm>1){ base=Math.round(base*mm); details.push(`モードボーナス ×${mm}`); }
+
+  if(maxCombo>=10){ base+=5; details.push(`10コンボ達成 🪙+5`); }
+  if(maxCombo>=20){ base+=10; details.push(`20コンボ達成 🪙+10`); }
+
+  const acc = total>0 ? Math.round(correct/total*100) : 0;
+  if(acc===100 && correct>=5){ base+=10; details.push(`パーフェクト！ 🪙+10`); }
+
+  if(isFirstClear){ base+=20; details.push(`はじめてクリア 🪙+20`); }
+
+  return { total:base, details };
+}
+
+/* ══ キャラロック解除チェック ══ */
+function isCharUnlocked(ch){
+  if(!ch.unlockCond) return true;
+  const c=ch.unlockCond;
+  if(c.type==='diff')    return persist.veryHardCount >= c.n;
+  if(c.type==='zukan')   return (persist.owned.size/CHARS.length*100) >= c.pct;
+  if(c.type==='combo')   return persist.maxComboEver >= c.n;
+  if(c.type==='perfect') return persist.perfectCount >= c.n;
+  return false;
+}
+
+/* ══ ガチャロック解除チェック ══ */
+function isGachaUnlocked(g){
+  if(!g.lockCond) return true;
+  const c=g.lockCond;
+  if(c.type==='clearCount')    return persist.clearCount    >= c.n;
+  if(c.type==='veryHardCount') return persist.veryHardCount >= c.n;
+  if(c.type==='zukan')         return (persist.owned.size/CHARS.length*100) >= c.pct;
+  return false;
+}
+
+/* ══ ガチャ ══ */
+function doGacha(gachaId){
+  const gDef = GACHA_DEFS.find(g=>g.id===gachaId);
+  if(!gDef) return;
+  if(!isGachaUnlocked(gDef)){ showCoinToast('まだひらいていないよ！'); return; }
+  if(persist.coins < gDef.cost){ showCoinToast('コインがたりない！'); return; }
+
+  persist.coins -= gDef.cost;
+
+  // レアリティ抽選
+  const rates = gDef.rates;
+  const r = Math.random();
+  let rarity;
+  if(r < rates.SSR)                         rarity='SSR';
+  else if(r < rates.SSR+rates.SR)           rarity='SR';
+  else if(r < rates.SSR+rates.SR+rates.R)   rarity='R';
+  else                                       rarity='N';
+
+  // レアリティに合うキャラをピック（ロック解除済みのもの全部対象・被りOK）
+  const pool = CHARS.filter(c=>c.rarity===rarity && isCharUnlocked(c));
+  const fallback = CHARS.filter(c=>isCharUnlocked(c));
+  const picked = (pool.length>0 ? pool : fallback)[Math.floor(Math.random()*(pool.length||fallback.length))];
+
+  // 所持数更新
+  persist.counts[picked.id] = (persist.counts[picked.id]||0) + 1;
+  const isNew = persist.counts[picked.id] === 1;
+  if(isNew) persist.owned.add(picked.id);
+  saveData(); updateCoinUI();
+
+  // 演出表示
+  showGachaReveal(picked, isNew);
+  renderGachaList(); renderZukan();
+}
+
+/* ══ ガチャ演出 ══ */
+// ── ORBカラー設定 ──
+const ORB_CONF = {
+  N:   {orbClass:'orb-N',  orbFace:'🟢', particles:['🌿','💚','🌱','⭐'],  count:12, rays:'spin'},
+  R:   {orbClass:'orb-R',  orbFace:'🔵', particles:['💙','🌊','❄️','⭐'],   count:16, rays:'spin'},
+  SR:  {orbClass:'orb-SR', orbFace:'🟣', particles:['💜','✨','🌟','💫','🔮'], count:22, rays:'spin'},
+  SSR: {orbClass:'orb-SSR',orbFace:'🌟', particles:['⭐','✨','💫','🌟','💎','🌈','🔥','👑'], count:36, rays:'spin-fast'},
+};
+
+let _gachaData = null;
+
+function showGachaReveal(ch, isNew){
+  _gachaData = {ch, isNew};
+  const overlay = document.getElementById('gacha-reveal');
+  const orb     = document.getElementById('gacha-orb');
+  const orbWrap = document.getElementById('gacha-orb-wrap');
+  const cardWrap= document.getElementById('gacha-card-wrap');
+  const rays    = document.getElementById('gacha-rays');
+  const hint    = document.getElementById('orb-hint');
+
+  // 背景・初期化
+  overlay.className = 'gacha-reveal-overlay gacha-bg-'+ch.rarity;
+  cardWrap.className = 'gacha-card-wrap';   // 非表示
+  orbWrap.style.display = 'flex';
+  hint.style.display = 'block';
+
+  // ORB設定
+  const conf = ORB_CONF[ch.rarity];
+  orb.className = 'gacha-orb '+conf.orbClass;
+  orb.textContent = conf.orbFace;
+
+  // 光線（SSRは速く回す）
+  rays.className = ch.rarity==='N' ? 'gacha-rays' : 'gacha-rays '+conf.rays;
+
+  // SSR: 星降りを追加
+  overlay.querySelectorAll('.ssr-star,.g-particle').forEach(e=>e.remove());
+  if(ch.rarity==='SSR') spawnStarfall(overlay);
+
+  overlay.classList.remove('hidden');
+
+  // ORBタップで次のフェーズへ
+  orbWrap.onclick = ()=>breakOrb(ch, isNew);
+  // 背景タップは無効（ORBのみ反応）
+  overlay.onclick = null;
+}
+
+function breakOrb(ch, isNew){
+  const overlay  = document.getElementById('gacha-reveal');
+  const orbWrap  = document.getElementById('gacha-orb-wrap');
+  const hint     = document.getElementById('orb-hint');
+  const flash    = document.getElementById('gacha-break-flash');
+  const rays     = document.getElementById('gacha-rays');
+  const cardWrap = document.getElementById('gacha-card-wrap');
+  const card     = document.getElementById('gacha-card');
+  const display  = document.getElementById('gacha-char-display');
+  const badge    = document.getElementById('gacha-rarity-badge');
+  const nameEl   = document.getElementById('gacha-char-name');
+  const newBadge = document.getElementById('gacha-new-badge');
+  const dupArea  = document.getElementById('gacha-dup-area');
+
+  // ORBを弾ける
+  const orb = document.getElementById('gacha-orb');
+  orb.style.animation = 'orbAppear 0.15s reverse forwards';
+  orbWrap.onclick = null;
+
+  setTimeout(()=>{
+    orbWrap.style.display = 'none';
+    hint.style.display    = 'none';
+
+    // フラッシュ！
+    flash.className = 'gacha-break-flash bang';
+
+    // パーティクル爆発
+    const conf = ORB_CONF[ch.rarity];
+    spawnParticles(overlay, conf.particles, conf.count);
+
+    // 光線を速く
+    if(ch.rarity==='SR' || ch.rarity==='SSR'){
+      document.getElementById('gacha-rays').className = 'gacha-rays spin-fast';
+    }
+
+    // 少し遅れてカード登場
+    const delay = ch.rarity==='SSR' ? 480 : ch.rarity==='SR' ? 380 : 260;
+    setTimeout(()=>{
+      // カード準備
+      card.className = 'gacha-card';
+      void card.offsetWidth;
+      card.className = 'gacha-card pop-'+ch.rarity;
+
+      // 絵文字表示
+      display.innerHTML = '';
+      const em = document.createElement('div');
+      em.className = 'gacha-face-emoji';
+      const sz = ch.rarity==='SSR' ? '96px' : ch.rarity==='SR' ? '80px' : '68px';
+      em.style.cssText = 'font-size:'+sz+';line-height:1;';
+      em.textContent = ch.face;
+      display.appendChild(em);
+
+      // レアリティバッジ
+      badge.textContent = RARITY_LABEL[ch.rarity];
+      badge.className   = 'gacha-rarity-badge '+RARITY_CSS[ch.rarity];
+      nameEl.textContent = ch.name || ch.id;
+
+      // 新規/重複
+      newBadge.style.display = isNew ? 'block' : 'none';
+      dupArea.style.display  = isNew ? 'none'  : 'block';
+      if(!isNew) document.getElementById('gacha-dup-count').textContent = '×'+persist.counts[ch.id];
+
+      cardWrap.className = 'gacha-card-wrap show';
+
+      // 花火・バースト
+      if(ch.rarity==='SSR'){
+        setTimeout(()=>{ fireBurst(32); fireBurst(20); }, 300);
+      } else if(ch.rarity==='SR' && isNew){
+        setTimeout(()=>fireBurst(18), 250);
+      } else if(ch.rarity==='R' && isNew){
+        setTimeout(()=>fireBurst(8), 200);
+      }
+
+      // SSR: 光線をゆっくりに戻す
+      if(ch.rarity==='SSR') setTimeout(()=>{ document.getElementById('gacha-rays').className='gacha-rays spin'; }, 800);
+
+    }, delay);
+
+  }, 180);
+
+  overlay.onclick = closeGachaReveal;
+}
+
+function closeGachaReveal(){
+  if(!document.getElementById('gacha-card-wrap').classList.contains('show')) return;
+  const overlay = document.getElementById('gacha-reveal');
+  overlay.classList.add('hidden');
+  document.getElementById('gacha-rays').className = 'gacha-rays';
+  document.getElementById('gacha-break-flash').className = 'gacha-break-flash';
+  overlay.querySelectorAll('.g-particle,.ssr-star').forEach(e=>e.remove());
+  _gachaData = null;
+}
+
+function spawnParticles(parent, emojis, count){
+  for(let i=0;i<count;i++){
+    const el = document.createElement('div');
+    el.className = 'g-particle';
+    const angle = Math.random()*360;
+    const dist  = 60 + Math.random()*220;
+    const tx = Math.cos(angle*Math.PI/180)*dist;
+    const ty = Math.sin(angle*Math.PI/180)*dist - 40;
+    el.style.setProperty('--tx',  tx+'px');
+    el.style.setProperty('--ty',  ty+'px');
+    el.style.setProperty('--dur', (0.6+Math.random()*0.9)+'s');
+    el.style.setProperty('--delay',(Math.random()*0.2)+'s');
+    el.style.setProperty('--sz',  (14+Math.random()*20)+'px');
+    el.style.setProperty('--rot', (Math.random()*480-240)+'deg');
+    el.style.setProperty('--lx',  '50%');
+    el.style.setProperty('--ly',  '45%');
+    el.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+    parent.appendChild(el);
+  }
+}
+
+function spawnStarfall(parent){
+  const stars = ['⭐','✨','💫','🌟','💎','🌈'];
+  for(let i=0;i<18;i++){
+    const el = document.createElement('div');
+    el.className = 'ssr-star';
+    el.style.setProperty('--sz',   (12+Math.random()*16)+'px');
+    el.style.setProperty('--dur',  (1.8+Math.random()*1.4)+'s');
+    el.style.setProperty('--delay',(Math.random()*2)+'s');
+    el.style.setProperty('--lx',   (Math.random()*100)+'%');
+    el.textContent = stars[Math.floor(Math.random()*stars.length)];
+    parent.appendChild(el);
+  }
+}
+
+/* ══ ガチャリスト描画 ══ */
+function renderGachaList(){
+  const list = document.getElementById('gacha-list');
+  list.innerHTML='';
+  GACHA_DEFS.forEach(g=>{
+    const locked = !isGachaUnlocked(g);
+    const btn = document.createElement('button');
+    btn.className = 'gacha-btn' + (locked?' gacha-locked':'');
+    btn.style.background = g.bg;
+    btn.innerHTML=`
+      <div class="gacha-btn-icon">${g.icon}</div>
+      <div class="gacha-btn-info">
+        <div class="gacha-btn-title">${g.label}</div>
+        ${locked ? `<div class="gacha-lock-hint">🔒 ${g.lockHint}</div>` : rateBar(g.rates)}
+      </div>
+      <div class="gacha-btn-cost">🪙${g.cost}</div>`;
+    if(!locked) btn.addEventListener('click',()=>doGacha(g.id));
+    list.appendChild(btn);
+  });
+}
+function rateBar(r){
+  const parts=[];
+  if(r.N>0)   parts.push(`<span style="color:rgba(255,255,255,0.8);font-size:10px;">N:${Math.round(r.N*100)}%</span>`);
+  if(r.R>0)   parts.push(`<span style="color:#cde;font-size:10px;">R:${Math.round(r.R*100)}%</span>`);
+  if(r.SR>0)  parts.push(`<span style="color:#e8d5ff;font-size:10px;">SR:${Math.round(r.SR*100)}%</span>`);
+  if(r.SSR>0) parts.push(`<span style="color:#FFE066;font-size:10px;">SSR:${Math.round(r.SSR*100)}%</span>`);
+  return `<div style="margin-top:3px;display:flex;gap:6px;">${parts.join('')}</div>`;
+}
+
+/* ══ 図鑑描画 ══ */
+function renderZukan(){
+  const grid  = document.getElementById('zukan-grid');
+  const pct   = Math.round(persist.owned.size/CHARS.length*100);
+  document.getElementById('zukan-bar').style.width = pct+'%';
+  document.getElementById('zukan-count-label').textContent = persist.owned.size+' / '+CHARS.length+' あつめた';
+  grid.innerHTML = '';
+  CHARS.forEach(ch=>{
+    const got   = persist.owned.has(ch.id);
+    const count = persist.counts[ch.id]||0;
+    const div   = document.createElement('div');
+    div.className = got ? 'zukan-slot got-'+ch.rarity : 'zukan-slot missing';
+    div.textContent = got ? ch.face : '？';
+    if(got && count>1){
+      const badge = document.createElement('div');
+      badge.className='count-badge';
+      badge.textContent='×'+count;
+      div.appendChild(badge);
+    }
+    grid.appendChild(div);
+  });
+}
+
+/* ══ コインUI更新 ══ */
+function updateCoinUI(){
+  ['home-coin','shop-coin'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent=persist.coins;
+  });
+}
+
+/* ══ コイントースト ══ */
+function showCoinToast(msg){
+  const el=document.createElement('div');
+  el.className='coin-toast'; el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1300);
+}
+
+/* ══ タブ切り替え ══ */
+function switchTab(tab){
+  document.getElementById('tab-game').classList.toggle('active', tab==='game');
+  document.getElementById('tab-shop').classList.toggle('active', tab==='shop');
+  document.getElementById('tab-zukan').classList.toggle('active', tab==='zukan');
+  document.querySelector('.op-grid').style.display        = tab==='game'  ? '' : 'none';
+  document.getElementById('home-shop').style.display      = tab==='shop'  ? 'flex' : 'none';
+  document.getElementById('home-zukan').style.display     = tab==='zukan' ? 'flex' : 'none';
+  if(tab==='shop')  renderGachaList();
+  if(tab==='zukan') renderZukan();
+}
+
+/* ══ 初回クリア管理 ══ */
+const clearedSet = new Set(JSON.parse(localStorage.getItem('kansanCleared')||'[]'));
+function markCleared(op,diff,mode){
+  const key=op+':'+diff+':'+mode;
+  const isFirst=!clearedSet.has(key);
+  if(isFirst){ clearedSet.add(key); localStorage.setItem('kansanCleared',JSON.stringify([...clearedSet])); }
+  return isFirst;
+}
+
+let state = {
+  op:null, diff:null, mode:'normal', answer:'',
+  correct:0, total:0, combo:0, maxCombo:0,
+  q:{a:0,b:0,ans:0},
+  lastAns:null, wrongMap:{},
+  timeLeft:60, lives:3,
+  timer:null, countTimer:null, blocked:false
+};
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+}
+
+/* ═══════════════════════════════════════
+   問題出題
+   ═══════════════════════════════════════ */
+function buildQ(a,b){
+  const op=state.op;
+  let ans;
+  if(op==='add') ans=a+b;
+  else if(op==='sub') ans=a-b;
+  else if(op==='mul') ans=a*b;
+  else ans=a/b;
+  return {a,b,ans};
+}
+
+function genQuestion(){
+  const weakKeys=Object.keys(state.wrongMap).filter(k=>state.wrongMap[k]>=2);
+  let cand, tries=0;
+
+  if(weakKeys.length>0 && Math.random()<0.30){
+    const pick=weakKeys[Math.floor(Math.random()*weakKeys.length)];
+    const [wa,wb]=pick.split(',').map(Number);
+    cand=buildQ(wa,wb);
+  } else {
+    do{ cand=randomQ(); tries++; }
+    while(cand.ans===state.lastAns && tries<10);
+  }
+
+  state.q=cand;
+  state.lastAns=cand.ans;
+  state.answer='';
+  state.blocked=false;
+
+  const ops={add:'＋',sub:'－',mul:'×',div:'÷'};
+  document.getElementById('question-text').innerHTML=
+    `${cand.a} ${ops[state.op]} ${cand.b} <span class="eq-sign">＝</span>`;
+
+  const disp=document.getElementById('answer-display');
+  disp.textContent='？'; disp.className='answer-display empty';
+  document.getElementById('feedback-emoji').textContent='';
+
+  const hint=document.getElementById('weak-hint');
+  const key=cand.a+','+cand.b;
+  if(state.wrongMap[key]>=2){ hint.textContent='⚠️ にがてもんだい！'; hint.className='weak-hint active'; }
+  else{ hint.textContent='　'; hint.className='weak-hint'; }
+}
+
+function updateDisplay(){
+  const d=document.getElementById('answer-display');
+  if(state.answer===''){ d.textContent='？'; d.className='answer-display empty'; }
+  else{ d.textContent=state.answer; d.className='answer-display'; }
+}
+
+function submitAnswer(){
+  if(state.blocked||state.answer==='') return;
+  const val=parseInt(state.answer,10);
+  if(isNaN(val)) return;
+  state.total++;
+  const key=state.q.a+','+state.q.b;
+  const disp=document.getElementById('answer-display');
+
+  if(val===state.q.ans){
+    state.correct++; state.combo++;
+    if(state.combo>state.maxCombo) state.maxCombo=state.combo;
+    document.getElementById('correct-count').textContent=state.correct;
+    if(state.wrongMap[key]){ state.wrongMap[key]=Math.max(0,state.wrongMap[key]-1); if(!state.wrongMap[key]) delete state.wrongMap[key]; }
+    disp.className='answer-display correct';
+    document.getElementById('feedback-emoji').textContent='⭕';
+    // タイムボーナスモード: +3秒
+    if(state.mode==='timeBonus'){
+      state.timeLeft=Math.min(state.timeLeft+3, 999);
+      showTimeBonusFlash();
+    }
+    updateComboUI();
+    setTimeout(()=>genQuestion(),320);
+  } else {
+    state.combo=0;
+    state.wrongMap[key]=(state.wrongMap[key]||0)+1;
+    state.blocked=true;
+    disp.className='answer-display wrong';
+    document.getElementById('feedback-emoji').textContent='❌';
+    hideCombo();
+    // 3ミスモード
+    if(state.mode==='misslimit'){
+      state.lives--;
+      updateHeartsUI();
+      flashScreen();
+      if(state.lives<=0){
+        setTimeout(()=>{ clearInterval(state.timer); showResult(); },500);
+        return;
+      }
+    }
+    setTimeout(()=>{ state.answer=''; updateDisplay(); disp.className='answer-display'; document.getElementById('feedback-emoji').textContent=''; state.blocked=false; },700);
+  }
+}
+
+/* COMBO */
+function comboGrade(n){
+  if(n>=25) return 'ss';
+  if(n>=15) return 's';
+  if(n>=10) return 'a';
+  return 'b';
+}
+function updateComboUI(){
+  const badge=document.getElementById('combo-badge');
+  if(state.combo>=5){
+    const g=comboGrade(state.combo);
+    const labels={b:'🔥',a:'⚡🔥',s:'💥🔥',ss:'👑🔥'};
+    const suffix={b:'れんぞく！',a:'コンボ!!',s:'スーパー!!!',ss:'かんさんかみ!!!!'}
+    document.getElementById('combo-num').textContent=state.combo;
+    badge.querySelector('#combo-label').textContent=labels[g];
+    badge.querySelector('#combo-suffix').textContent=suffix[g];
+    badge.className=`combo-badge visible grade-${g}`;
+    if(state.combo%5===0) fireBurst(state.combo);
+  } else { badge.className='combo-badge'; }
+}
+function hideCombo(){ document.getElementById('combo-badge').className='combo-badge'; }
+
+/* BURST */
+const EMJ_B =['⭐','🎉','✨','💥','🌟','🎊','🔥'];
+const EMJ_A =['⚡','💛','🌟','✨','🎊','🎉','💫'];
+const EMJ_S =['💜','🔮','💥','🌈','👾','💫','🎆'];
+const EMJ_SS=['👑','💎','🌈','🎆','🎇','✨','🏆','💥','🔥','⚡'];
+
+function fireBurst(combo){
+  const ol=document.getElementById('burst-overlay');
+  ol.innerHTML='';
+  const cx=window.innerWidth/2, cy=window.innerHeight/2;
+  let emjPool, count, dist, dur, sizePx;
+  if(combo>=25){      emjPool=EMJ_SS; count=32; dist=220; dur=1.4; sizePx=40; }
+  else if(combo>=15){ emjPool=EMJ_S;  count=24; dist=190; dur=1.2; sizePx=36; }
+  else if(combo>=10){ emjPool=EMJ_A;  count=20; dist=170; dur=1.1; sizePx=32; }
+  else{               emjPool=EMJ_B;  count=16; dist=140; dur=0.9; sizePx=28; }
+
+  for(let i=0;i<count;i++){
+    const el=document.createElement('div');
+    el.className='burst-particle';
+    el.textContent=emjPool[Math.floor(Math.random()*emjPool.length)];
+    el.style.fontSize=sizePx+'px';
+    const ang=(Math.PI*2*i)/count + Math.random()*0.3;
+    const d=dist+Math.random()*80;
+    el.style.left=cx+'px'; el.style.top=cy+'px';
+    el.style.setProperty('--tx',Math.cos(ang)*d+'px');
+    el.style.setProperty('--ty',Math.sin(ang)*d+'px');
+    el.style.animationDuration=dur+'s';
+    el.style.animationDelay=(Math.random()*0.15)+'s';
+    ol.appendChild(el);
+  }
+  // SSコンボは2波
+  if(combo>=25){
+    setTimeout(()=>{
+      for(let i=0;i<16;i++){
+        const el=document.createElement('div');
+        el.className='burst-particle';
+        el.textContent=EMJ_SS[Math.floor(Math.random()*EMJ_SS.length)];
+        el.style.fontSize='44px';
+        const ang=Math.random()*Math.PI*2, d=100+Math.random()*120;
+        el.style.left=cx+'px'; el.style.top=cy+'px';
+        el.style.setProperty('--tx',Math.cos(ang)*d+'px');
+        el.style.setProperty('--ty',Math.sin(ang)*d+'px');
+        el.style.animationDuration='1s';
+        ol.appendChild(el);
+      }
+    },300);
+  }
+  setTimeout(()=>{ol.innerHTML='';},dur*1000+500);
+}
+
+/* TIMER */
+function updateTimerBar(){
+  const maxT = state.mode==='timeBonus' ? Math.max(state.timeLeft,60) : 60;
+  const pct = Math.min(state.timeLeft/maxT*100, 100);
+  const bar=document.getElementById('timer-bar');
+  bar.style.width=pct+'%';
+  bar.style.background=state.mode==='timeBonus'?'#f0a500':(pct>40?'#4ECDC4':pct>20?'#f0a500':'#FF6B6B');
+  document.getElementById('time-left').textContent=state.timeLeft;
+}
+
+function showTimeBonusFlash(){
+  const el=document.createElement('div');
+  el.className='time-bonus-flash';
+  el.textContent='+3びょう！';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),950);
+}
+
+function flashScreen(){
+  const fl=document.getElementById('screen-flash');
+  fl.className='screen-flash';
+  void fl.offsetWidth;
+  fl.className='screen-flash flash';
+}
+
+function updateHeartsUI(){
+  const row=document.getElementById('hearts-row');
+  row.innerHTML='';
+  for(let i=0;i<3;i++){
+    const span=document.createElement('span');
+    span.textContent = i < state.lives ? '❤️' : '🖤';
+    row.appendChild(span);
+  }
+}
+
+/* GAME */
+function startGame(){
+  Object.assign(state,{correct:0,total:0,combo:0,maxCombo:0,timeLeft:60,lives:3,answer:'',lastAns:null,wrongMap:{},blocked:false});
+  hideCombo();
+  document.getElementById('correct-count').textContent='0';
+
+  // モード別UI初期化
+  const heartsRow=document.getElementById('hearts-row');
+  const timerWrap=document.querySelector('.timer-bar-wrap');
+  if(state.mode==='misslimit'){
+    timerWrap.style.display='none';
+    document.getElementById('timer-label').innerHTML='';
+    heartsRow.style.display='flex';
+    updateHeartsUI();
+  } else {
+    timerWrap.style.display='';
+    document.getElementById('timer-label').innerHTML='⏱ <span class="stat-val" id="time-left">60</span>びょう';
+    heartsRow.style.display='none';
+  }
+
+  genQuestion(); updateTimerBar();
+  clearInterval(state.timer);
+  if(state.mode==='misslimit'){
+    // ミスリミットモードはタイマーなし（無制限）
+  } else {
+    state.timer=setInterval(()=>{
+      state.timeLeft--; updateTimerBar();
+      if(state.timeLeft<=0){clearInterval(state.timer);showResult();}
+    },1000);
+  }
+}
+
+function showResult(){
+  show('result');
+  const s=state.correct, acc=state.total?Math.round(state.correct/state.total*100):0;
+  document.getElementById('result-score').textContent=s;
+  document.getElementById('result-accuracy').textContent=acc+'%';
+  document.getElementById('result-max-combo').textContent=state.maxCombo;
+  const modeLabels={normal:'⏱ ノーマルモード',timeBonus:'⚡ タイムボーナスモード',misslimit:'❤️ 3ミスおわりモード'};
+  document.getElementById('result-mode-label').textContent=modeLabels[state.mode]||'';
+  let emoji='🎉',comment='';
+  if(state.maxCombo>=25){emoji='👑';comment='かんさんかみ！！！';}
+  else if(state.maxCombo>=15){emoji='🔮';comment='スーパーコンボ！すごすぎ！';}
+  else if(state.maxCombo>=10){emoji='🏆';comment='コンボもすごい！かんさんマスター！';}
+  else if(s>=15){emoji='🏆';comment='すごい！かんさんマスター！';}
+  else if(s>=10){emoji='😄';comment='よくできました！';}
+  else if(s>=5) {emoji='😊';comment='がんばったね！';}
+  else          {emoji='💪';comment='もっとれんしゅうしよう！';}
+  document.getElementById('result-emoji').textContent=emoji;
+  document.getElementById('result-comment').textContent=comment;
+
+  // パーフェクト・veryHard・クリア回数記録更新
+  if(acc===100 && s>=5) persist.perfectCount++;
+  if(state.diff==='veryHard' && s>0) persist.veryHardCount++;
+  if(['normal','mediumHard','hard','veryHard'].includes(state.diff) && s>0) persist.clearCount++;
+  if(state.maxCombo > persist.maxComboEver) persist.maxComboEver=state.maxCombo;
+
+  // コイン計算
+  const isFirst = markCleared(state.op, state.diff, state.mode);
+  const coinRes = calcCoins(s, state.total, state.maxCombo, state.diff, state.mode, isFirst);
+  persist.coins += coinRes.total;
+  saveData(); updateCoinUI();
+
+  document.getElementById('result-coin-total').textContent = '+' + coinRes.total + '🪙';
+  document.getElementById('result-coin-detail').textContent = coinRes.details.join(' ／ ');
+}
+
+function startCountdown(cb){
+  show('count'); let c=3;
+  const el=document.getElementById('countdown-num');
+  el.textContent=c;
+  clearInterval(state.countTimer);
+  state.countTimer=setInterval(()=>{
+    c--;
+    if(c>0){el.textContent=c;el.className='countdown';void el.offsetWidth;}
+    else{clearInterval(state.countTimer);cb();}
+  },900);
+}
+
+/* ═══════════════════════════════════════
+   難易度リスト動的生成
+   ═══════════════════════════════════════ */
+function buildDiffList(op){
+  const list=document.getElementById('diff-list');
+  list.innerHTML='';
+  DIFF_DEFS[op].forEach(def=>{
+    const card=document.createElement('div');
+    card.className='diff-card';
+    card.dataset.diff=def.key;
+    card.style.borderColor=def.color;
+    card.innerHTML=`
+      <div class="diff-info">
+        <h3>${def.label}</h3>
+      </div>
+      <div class="diff-stars">${def.stars}</div>`;
+    card.addEventListener('click',()=>{
+      state.diff=def.key;
+      show('mode');
+    });
+    list.appendChild(card);
+  });
+}
+
+/* OP SELECT */
+document.querySelectorAll('.op-card').forEach(card=>{
+  card.addEventListener('click',()=>{
+    state.op=card.dataset.op;
+    buildDiffList(state.op);
+    show('diff');
+  });
+});
+
+document.getElementById('back-from-diff').addEventListener('click',()=>show('home'));
+
+/* MODE SELECT */
+document.querySelectorAll('.mode-card').forEach(card=>{
+  card.addEventListener('click',()=>{
+    state.mode=card.dataset.mode;
+    startCountdown(()=>{show('game');startGame();});
+  });
+});
+document.getElementById('back-from-mode').addEventListener('click',()=>show('diff'));
+
+document.getElementById('retry-btn').addEventListener('click',()=>startCountdown(()=>{show('game');startGame();}));
+document.getElementById('home-btn').addEventListener('click',()=>{clearInterval(state.timer);show('home');});
+
+/* NUMPAD */
+document.querySelectorAll('.num-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    if(state.blocked) return;
+    const n=btn.dataset.n;
+    if(n==='del'){ state.answer=state.answer.slice(0,-1); }
+    else if(n==='enter'){ submitAnswer(); return; }
+    else if(state.answer.length<4){ state.answer+=n; }
+    updateDisplay();
+  });
+});
+
+/* 初期化 */
+updateCoinUI();
+// ショップが最初に開かれたとき用に描画しておく
+renderGachaList();
+</script>
+</body>
+</html>
